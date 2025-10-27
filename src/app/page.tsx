@@ -75,38 +75,45 @@ export default function Home() {
         throw new Error('No response stream');
       }
 
+      let buffer = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          if (line.startsWith('data: ') && line.trim().length > 6) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr) {
+                const data = JSON.parse(jsonStr);
 
-              if (data.type === 'progress') {
-                setProgressState({
-                  step: data.step,
-                  message: data.message,
-                  progress: data.progress,
-                  eta: data.eta
-                });
-              } else if (data.type === 'complete') {
-                setProgressState({
-                  step: 'complete',
-                  message: data.message,
-                  progress: 100
-                });
-                setResult(data.data);
-                setLoading(false);
-              } else if (data.type === 'error') {
-                throw new Error(data.message);
+                if (data.type === 'progress') {
+                  setProgressState({
+                    step: data.step,
+                    message: data.message,
+                    progress: data.progress,
+                    eta: data.eta
+                  });
+                } else if (data.type === 'complete') {
+                  setProgressState({
+                    step: 'complete',
+                    message: data.message,
+                    progress: 100
+                  });
+                  setResult(data.data);
+                  setLoading(false);
+                } else if (data.type === 'error') {
+                  throw new Error(data.message);
+                }
               }
             } catch (e) {
-              console.error('Error parsing progress:', e);
+              // Silently skip malformed chunks - they'll be completed in next iteration
             }
           }
         }
