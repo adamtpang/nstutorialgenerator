@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileDown, Loader2, BookOpen, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { FileDown, Loader2, BookOpen, AlertCircle, CheckCircle2, Clock, Copy, Check } from 'lucide-react';
 import JSZip from 'jszip';
 
 interface TutorialFile {
@@ -36,11 +36,12 @@ interface ProgressState {
 
 export default function Home() {
   const [url, setUrl] = useState('');
-  const [maxPages, setMaxPages] = useState(30);
+  const [maxPages, setMaxPages] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!url) {
@@ -115,6 +116,23 @@ export default function Home() {
       setProgressState(null);
     }
   };
+
+  const copyToClipboard = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setTimeout(() => setCopiedUrl(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const exampleUrls = [
+    { name: 'Express.js Guide', url: 'https://expressjs.com/en/guide/routing.html' },
+    { name: 'Next.js Docs', url: 'https://nextjs.org/docs' },
+    { name: 'React Tutorial', url: 'https://react.dev/learn' },
+    { name: 'Python Docs', url: 'https://docs.python.org/3/tutorial/' },
+  ];
 
   const downloadFile = (filename: string, content: string) => {
     const blob = new Blob([content], { type: 'text/markdown' });
@@ -243,6 +261,31 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
             <p className="mt-2 text-sm text-gray-500">
               Enter the main documentation URL to start crawling
             </p>
+
+            {/* Example URLs */}
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-gray-600 mb-2">Try these examples:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {exampleUrls.map((example) => (
+                  <button
+                    key={example.url}
+                    onClick={() => {
+                      setUrl(example.url);
+                      copyToClipboard(example.url);
+                    }}
+                    className="flex items-center justify-between px-3 py-2 bg-primary-50 hover:bg-primary-100 text-primary-400 text-sm rounded-lg transition group"
+                    disabled={loading}
+                  >
+                    <span className="text-xs font-medium truncate">{example.name}</span>
+                    {copiedUrl === example.url ? (
+                      <Check className="w-3 h-3 ml-2 flex-shrink-0 text-green-600" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="mb-6">
@@ -253,14 +296,14 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
               id="maxPages"
               type="number"
               value={maxPages}
-              onChange={(e) => setMaxPages(parseInt(e.target.value) || 30)}
-              min="5"
+              onChange={(e) => setMaxPages(parseInt(e.target.value) || 10)}
+              min="10"
               max="100"
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
               disabled={loading}
             />
             <p className="mt-2 text-sm text-gray-500">
-              More pages = more comprehensive analysis (5-100 pages)
+              More pages = more comprehensive analysis (10-100 pages)
             </p>
           </div>
 

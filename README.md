@@ -6,9 +6,11 @@ An intelligent web application that scans documentation sites and automatically 
 
 ## 🌐 Live Demo
 
-**Coming Soon!** Deploy to Vercel and add your URL here.
+🔗 **[Try it now!](https://your-app-url.vercel.app)** ← Add your Vercel URL here after deployment
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/tutorial-generator)
+
+> **Note**: After deploying, update the URL above with your live Vercel link!
 
 ## 🎯 What It Does
 
