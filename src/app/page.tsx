@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileDown, Loader2, BookOpen, AlertCircle } from 'lucide-react';
+import { FileDown, Loader2, BookOpen, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import JSZip from 'jszip';
 
 interface TutorialFile {
@@ -21,9 +21,17 @@ interface GenerateResponse {
     pagesCrawled: number;
     tutorialsGenerated: number;
     totalEstimatedCost: number;
+    totalTime?: number;
   };
   files: TutorialFile[];
   csv: string;
+}
+
+interface ProgressState {
+  step: string;
+  message: string;
+  progress: number;
+  eta?: string;
 }
 
 export default function Home() {
@@ -32,6 +40,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [progressState, setProgressState] = useState<ProgressState | null>(null);
 
   const handleGenerate = async () => {
     if (!url) {
@@ -42,6 +51,7 @@ export default function Home() {
     setLoading(true);
     setError('');
     setResult(null);
+    setProgressState({ step: 'starting', message: 'Initializing...', progress: 0 });
 
     try {
       const response = await fetch('/api/generate', {
@@ -52,17 +62,57 @@ export default function Home() {
         body: JSON.stringify({ url, maxPages }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate tutorials');
+        throw new Error('Failed to generate tutorials');
       }
 
-      setResult(data);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response stream');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'progress') {
+                setProgressState({
+                  step: data.step,
+                  message: data.message,
+                  progress: data.progress,
+                  eta: data.eta
+                });
+              } else if (data.type === 'complete') {
+                setProgressState({
+                  step: 'complete',
+                  message: data.message,
+                  progress: 100
+                });
+                setResult(data.data);
+                setLoading(false);
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (e) {
+              console.error('Error parsing progress:', e);
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setLoading(false);
+      setProgressState(null);
     }
   };
 
@@ -99,7 +149,8 @@ Generated from: ${url}
 ## Statistics
 - Pages Crawled: ${result.stats.pagesCrawled}
 - Tutorials Generated: ${result.stats.tutorialsGenerated}
-- Total Estimated Cost: ${result.stats.totalEstimatedCost}
+- Total Estimated Cost: $${result.stats.totalEstimatedCost}
+${result.stats.totalTime ? `- Generation Time: ${Math.floor(result.stats.totalTime / 60)}m ${result.stats.totalTime % 60}s` : ''}
 
 ## Files
 ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).join('\n')}
@@ -127,15 +178,45 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
     URL.revokeObjectURL(downloadUrl);
   };
 
+  const getStepIcon = (step: string) => {
+    switch (step) {
+      case 'crawling':
+        return '🔍';
+      case 'analyzing':
+        return '🤖';
+      case 'generating':
+        return '📝';
+      case 'complete':
+        return '✅';
+      default:
+        return '⚙️';
+    }
+  };
+
+  const getStepTitle = (step: string) => {
+    switch (step) {
+      case 'crawling':
+        return 'Crawling Documentation';
+      case 'analyzing':
+        return 'AI Analysis in Progress';
+      case 'generating':
+        return 'Generating Scaffolds';
+      case 'complete':
+        return 'Complete!';
+      default:
+        return 'Starting...';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-brand-lightest via-white to-brand-light">
       <div className="container mx-auto px-4 py-12 max-w-6xl">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-4">
-            <BookOpen className="w-12 h-12 text-blue-600" />
+            <BookOpen className="w-12 h-12 text-brand-dark" />
           </div>
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-brand-darkest via-brand-dark to-brand bg-clip-text text-transparent">
             Tutorial Generator
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -156,7 +237,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://docs.example.com"
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
               disabled={loading}
             />
             <p className="mt-2 text-sm text-gray-500">
@@ -175,7 +256,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
               onChange={(e) => setMaxPages(parseInt(e.target.value) || 30)}
               min="5"
               max="100"
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
               disabled={loading}
             />
             <p className="mt-2 text-sm text-gray-500">
@@ -195,7 +276,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
           <button
             onClick={handleGenerate}
             disabled={loading || !url}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
+            className="w-full bg-gradient-to-r from-brand-darkest to-brand-dark text-white font-semibold py-4 px-6 rounded-lg hover:from-brand-dark hover:to-brand disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
           >
             {loading ? (
               <span className="flex items-center justify-center">
@@ -208,6 +289,81 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
           </button>
         </div>
 
+        {/* Progress Section */}
+        {loading && progressState && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{getStepIcon(progressState.step)}</span>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {getStepTitle(progressState.step)}
+                    </h3>
+                    <p className="text-sm text-gray-600">{progressState.message}</p>
+                  </div>
+                </div>
+                {progressState.eta && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Clock className="w-4 h-4" />
+                    <span>{progressState.eta}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="absolute top-0 left-0 h-full bg-gradient-to-r from-brand-dark to-brand transition-all duration-500 ease-out"
+                  style={{ width: `${progressState.progress}%` }}
+                >
+                  <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Progress Percentage */}
+              <div className="flex justify-between mt-2 text-sm">
+                <span className="text-gray-600">Progress</span>
+                <span className="font-semibold text-gray-900">{progressState.progress}%</span>
+              </div>
+            </div>
+
+            {/* Step Indicators */}
+            <div className="grid grid-cols-4 gap-4 mt-6">
+              {['crawling', 'analyzing', 'generating', 'complete'].map((step, index) => {
+                const isActive = progressState.step === step;
+                const isComplete = ['crawling', 'analyzing', 'generating', 'complete'].indexOf(progressState.step) > index;
+
+                return (
+                  <div
+                    key={step}
+                    className={`flex flex-col items-center p-3 rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-brand-lightest border-2 border-brand'
+                        : isComplete
+                        ? 'bg-green-50 border-2 border-green-300'
+                        : 'bg-gray-50 border-2 border-gray-200'
+                    }`}
+                  >
+                    <div className="mb-2">
+                      {isComplete ? (
+                        <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      ) : isActive ? (
+                        <Loader2 className="w-6 h-6 text-brand-dark animate-spin" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium text-center capitalize">
+                      {step}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
         {result && (
           <div className="space-y-6">
@@ -215,15 +371,15 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <h2 className="text-2xl font-bold mb-6">Generation Complete! 🎉</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-brand-lightest rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Pages Crawled</p>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-3xl font-bold text-brand-dark">
                     {result.stats.pagesCrawled}
                   </p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-4">
+                <div className="bg-brand-light rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Tutorials Generated</p>
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-3xl font-bold text-brand-darkest">
                     {result.stats.tutorialsGenerated}
                   </p>
                 </div>
@@ -253,7 +409,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                 {result.files.map((file, index) => (
                   <div
                     key={index}
-                    className="border-2 border-gray-100 rounded-lg p-6 hover:border-blue-200 transition"
+                    className="border-2 border-gray-100 rounded-lg p-6 hover:border-brand transition"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -264,7 +420,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                           {file.tutorial.summary}
                         </p>
                         <div className="flex items-center gap-4 text-sm">
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+                          <span className="px-3 py-1 bg-brand-lightest text-brand-darkest rounded-full font-medium">
                             {file.tutorial.difficulty}
                           </span>
                           <span className="text-green-600 font-semibold">
@@ -274,7 +430,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                       </div>
                       <button
                         onClick={() => downloadFile(file.filename, file.content)}
-                        className="ml-4 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        className="ml-4 p-2 text-brand-dark hover:bg-brand-lightest rounded-lg transition"
                         title="Download Markdown"
                       >
                         <FileDown className="w-5 h-5" />
@@ -288,9 +444,28 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
         )}
 
         {/* Footer */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Built for the ns.com/earn challenge</p>
-          <p className="mt-2">
+        <div className="mt-12 text-center text-gray-600 text-sm border-t border-gray-200 pt-8">
+          <p className="mb-2">
+            Built by{' '}
+            <a
+              href="https://adamtomas.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary-300 hover:text-primary-200 transition underline decoration-primary-100"
+            >
+              adamtomas.fun
+            </a>
+            {' '}at{' '}
+            <a
+              href="https://ns.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary-300 hover:text-primary-200 transition underline decoration-primary-100"
+            >
+              ns.com
+            </a>
+          </p>
+          <p className="text-gray-500">
             Powered by Claude AI • Next.js • Vercel
           </p>
         </div>
