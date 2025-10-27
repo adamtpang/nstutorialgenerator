@@ -275,8 +275,8 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
 
           <button
             onClick={handleGenerate}
-            disabled={loading || !url}
-            className="w-full bg-gradient-to-r from-brand-darkest to-brand-dark text-white font-semibold py-4 px-6 rounded-lg hover:from-brand-dark hover:to-brand disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-primary-300 to-primary-200 text-white font-semibold py-4 px-6 rounded-lg hover:from-primary-400 hover:to-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
           >
             {loading ? (
               <span className="flex items-center justify-center">
