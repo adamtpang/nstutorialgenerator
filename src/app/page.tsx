@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileDown, Loader2, BookOpen, AlertCircle, CheckCircle2, Clock, Copy, Check } from 'lucide-react';
+import { FileDown, Loader2, BookOpen, AlertCircle, CheckCircle2, Clock, Copy, Check, X, Eye } from 'lucide-react';
 import JSZip from 'jszip';
 
 interface TutorialFile {
@@ -42,6 +42,7 @@ export default function Home() {
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [progressState, setProgressState] = useState<ProgressState | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<TutorialFile | null>(null);
 
   const handleGenerate = async () => {
     if (!url) {
@@ -273,14 +274,14 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                       setUrl(example.url);
                       copyToClipboard(example.url);
                     }}
-                    className="flex items-center justify-between px-3 py-2 bg-primary-50 hover:bg-primary-100 text-primary-400 text-sm rounded-lg transition group"
+                    className="flex items-center justify-between px-3 py-2 bg-brand-lightest hover:bg-brand-light text-brand-darkest text-sm rounded-lg transition group"
                     disabled={loading}
                   >
                     <span className="text-xs font-medium truncate">{example.name}</span>
                     {copiedUrl === example.url ? (
                       <Check className="w-3 h-3 ml-2 flex-shrink-0 text-green-600" />
                     ) : (
-                      <Copy className="w-3 h-3 ml-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition" />
+                      <Copy className="w-3 h-3 ml-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition text-brand-dark" />
                     )}
                   </button>
                 ))}
@@ -319,7 +320,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-primary-300 to-primary-200 text-white font-semibold py-4 px-6 rounded-lg hover:from-primary-400 hover:to-primary-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
+            className="w-full bg-gradient-to-r from-brand-darkest to-brand-dark text-white font-semibold py-4 px-6 rounded-lg hover:from-brand-dark hover:to-brand disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl"
           >
             {loading ? (
               <span className="flex items-center justify-center">
@@ -452,12 +453,14 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                 {result.files.map((file, index) => (
                   <div
                     key={index}
-                    className="border-2 border-gray-100 rounded-lg p-6 hover:border-brand transition"
+                    className="border-2 border-gray-100 rounded-lg p-6 hover:border-brand transition cursor-pointer"
+                    onClick={() => setPreviewFile(file)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
                           {file.tutorial.title}
+                          <Eye className="w-4 h-4 text-brand-dark opacity-0 group-hover:opacity-100 transition" />
                         </h4>
                         <p className="text-gray-600 text-sm mb-3">
                           {file.tutorial.summary}
@@ -472,7 +475,10 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
                         </div>
                       </div>
                       <button
-                        onClick={() => downloadFile(file.filename, file.content)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadFile(file.filename, file.content);
+                        }}
                         className="ml-4 p-2 text-brand-dark hover:bg-brand-lightest rounded-lg transition"
                         title="Download Markdown"
                       >
@@ -494,7 +500,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
               href="https://adamtomas.fun"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-primary-300 hover:text-primary-200 transition underline decoration-primary-100"
+              className="font-semibold text-brand-dark hover:text-brand transition underline decoration-brand-light"
             >
               adamtomas.fun
             </a>
@@ -503,7 +509,7 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
               href="https://ns.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-primary-300 hover:text-primary-200 transition underline decoration-primary-100"
+              className="font-semibold text-brand-dark hover:text-brand transition underline decoration-brand-light"
             >
               ns.com
             </a>
@@ -512,6 +518,70 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
             Powered by Claude AI • Next.js • Vercel
           </p>
         </div>
+
+        {/* Preview Modal */}
+        {previewFile && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setPreviewFile(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-start justify-between p-6 border-b border-gray-200">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    {previewFile.tutorial.title}
+                  </h3>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="px-3 py-1 bg-brand-lightest text-brand-darkest rounded-full font-medium">
+                      {previewFile.tutorial.difficulty}
+                    </span>
+                    <span className="text-green-600 font-semibold">
+                      ${previewFile.tutorial.estimatedCost}
+                    </span>
+                    <span className="text-gray-500">{previewFile.filename}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <pre className="whitespace-pre-wrap text-sm font-mono text-gray-800 leading-relaxed">
+                  {previewFile.content}
+                </pre>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    downloadFile(previewFile.filename, previewFile.content);
+                    setPreviewFile(null);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-brand-darkest to-brand-dark text-white rounded-lg hover:from-brand-dark hover:to-brand transition flex items-center gap-2"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

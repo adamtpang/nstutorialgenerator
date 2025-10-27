@@ -75,15 +75,18 @@ export async function POST(request: NextRequest) {
           console.log(`Starting crawl of ${url}...`);
           const crawler = new DocumentationCrawler(url, maxPages);
 
-          // Estimate: ~100ms per page for crawling
-          const crawlETA = Math.ceil((maxPages * 0.1) / 60 * 10) / 10; // in minutes
+          // Estimate: ~100ms per page for crawling = 0.1s per page
+          const crawlTimeSeconds = Math.ceil(maxPages * 0.1);
+          const crawlETA = crawlTimeSeconds < 60
+            ? `~${crawlTimeSeconds} seconds for crawling`
+            : `~${Math.ceil(crawlTimeSeconds / 60)} minute${Math.ceil(crawlTimeSeconds / 60) !== 1 ? 's' : ''} for crawling`;
 
           sendProgress({
             type: 'progress',
             step: 'crawling',
             message: `Crawling up to ${maxPages} pages...`,
             progress: 15,
-            eta: `~${crawlETA} minute${crawlETA !== 1 ? 's' : ''} for crawling`
+            eta: crawlETA
           });
 
           const pages = await crawler.crawl();
@@ -110,15 +113,17 @@ export async function POST(request: NextRequest) {
 
           // Step 2: Analyze and generate tutorial ideas
           const batches = Math.ceil(pages.length / 10);
-          const analysisTime = batches * 4; // ~4 seconds per batch
-          const totalETA = Math.ceil(analysisTime / 60 * 10) / 10;
+          const analysisTimeSeconds = batches * 4; // ~4 seconds per batch
+          const totalETA = analysisTimeSeconds < 60
+            ? `~${analysisTimeSeconds} seconds for AI analysis`
+            : `~${Math.ceil(analysisTimeSeconds / 60)} minute${Math.ceil(analysisTimeSeconds / 60) !== 1 ? 's' : ''} for AI analysis`;
 
           sendProgress({
             type: 'progress',
             step: 'analyzing',
             message: `Analyzing documentation with AI (${batches} batch${batches !== 1 ? 'es' : ''})...`,
             progress: 35,
-            eta: `~${totalETA} minute${totalETA !== 1 ? 's' : ''} for AI analysis`
+            eta: totalETA
           });
 
           console.log('Analyzing documentation and generating ideas...');
@@ -132,14 +137,24 @@ export async function POST(request: NextRequest) {
             const batchNum = Math.floor(i / batchSize) + 1;
             const progressPercent = 35 + Math.floor((i / pages.length) * 45);
             const remainingBatches = batches - batchNum + 1;
-            const remainingTime = Math.ceil((remainingBatches * 4) / 60 * 10) / 10;
+            const remainingTimeSeconds = remainingBatches * 4;
+
+            let etaMessage = 'Almost done...';
+            if (remainingTimeSeconds > 0) {
+              if (remainingTimeSeconds < 60) {
+                etaMessage = `~${remainingTimeSeconds} seconds remaining`;
+              } else {
+                const minutes = Math.ceil(remainingTimeSeconds / 60);
+                etaMessage = `~${minutes} minute${minutes !== 1 ? 's' : ''} remaining`;
+              }
+            }
 
             sendProgress({
               type: 'progress',
               step: 'analyzing',
               message: `Analyzing batch ${batchNum} of ${batches}...`,
               progress: progressPercent,
-              eta: remainingTime > 0 ? `~${remainingTime} minute${remainingTime !== 1 ? 's' : ''} remaining` : 'Almost done...'
+              eta: etaMessage
             });
 
             const batch = pages.slice(i, i + batchSize);
