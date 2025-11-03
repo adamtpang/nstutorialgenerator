@@ -37,6 +37,7 @@ interface ProgressState {
 export default function Home() {
   const [url, setUrl] = useState('');
   const [maxPages, setMaxPages] = useState(10);
+  const [keywords, setKeywords] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<GenerateResponse | null>(null);
@@ -61,7 +62,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url, maxPages }),
+        body: JSON.stringify({ url, maxPages, keywords: keywords.trim() || undefined }),
       });
 
       if (!response.ok) {
@@ -296,23 +297,43 @@ ${result.files.map((f, i) => `${i + 1}. ${f.filename} - ${f.tutorial.title}`).jo
             </div>
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="maxPages" className="block text-sm font-semibold text-gray-700 mb-2">
-              Maximum Pages to Crawl
-            </label>
-            <input
-              id="maxPages"
-              type="number"
-              value={maxPages}
-              onChange={(e) => setMaxPages(parseInt(e.target.value) || 10)}
-              min="10"
-              max="100"
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
-              disabled={loading}
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              More pages = more comprehensive analysis (10-100 pages)
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label htmlFor="maxPages" className="block text-sm font-semibold text-gray-700 mb-2">
+                Maximum Pages to Crawl
+              </label>
+              <input
+                id="maxPages"
+                type="number"
+                value={maxPages}
+                onChange={(e) => setMaxPages(parseInt(e.target.value) || 10)}
+                min="10"
+                max="100"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
+                disabled={loading}
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                More pages = more comprehensive analysis (10-100 pages)
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="keywords" className="block text-sm font-semibold text-gray-700 mb-2">
+                Focus Keywords (Optional)
+              </label>
+              <input
+                id="keywords"
+                type="text"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="e.g., authentication, deployment, testing"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
+                disabled={loading}
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Comma-separated topics to focus on (leave blank for all)
+              </p>
+            </div>
           </div>
 
           {error && (

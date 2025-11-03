@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 interface GenerateRequest {
   url: string;
   maxPages?: number;
+  keywords?: string;
 }
 
 interface ProgressUpdate {
@@ -24,7 +25,7 @@ interface ProgressUpdate {
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
-    const { url, maxPages = 30 } = body;
+    const { url, maxPages = 30, keywords } = body;
 
     if (!url) {
       return NextResponse.json(
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
             });
 
             const batch = pages.slice(i, i + batchSize);
-            const batchResults = await analyzer.analyzePagesAndGenerateIdeas(batch);
+            const batchResults = await analyzer.analyzePagesAndGenerateIdeas(batch, keywords);
             tutorials.push(...batchResults);
 
             if (i + batchSize < pages.length) {

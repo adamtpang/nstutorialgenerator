@@ -26,13 +26,13 @@ export class TutorialAnalyzer {
     this.client = new Anthropic({ apiKey });
   }
 
-  async analyzePagesAndGenerateIdeas(pages: CrawledPage[]): Promise<TutorialIdea[]> {
+  async analyzePagesAndGenerateIdeas(pages: CrawledPage[], keywords?: string): Promise<TutorialIdea[]> {
     const allIdeas: TutorialIdea[] = [];
     const batchSize = 10;
 
     for (let i = 0; i < pages.length; i += batchSize) {
       const batch = pages.slice(i, i + batchSize);
-      const ideas = await this.analyzeBatch(batch);
+      const ideas = await this.analyzeBatch(batch, keywords);
       allIdeas.push(...ideas);
 
       // Small delay between batches
@@ -42,8 +42,8 @@ export class TutorialAnalyzer {
     return allIdeas;
   }
 
-  private async analyzeBatch(pages: CrawledPage[]): Promise<TutorialIdea[]> {
-    const prompt = this.buildAnalysisPrompt(pages);
+  private async analyzeBatch(pages: CrawledPage[], keywords?: string): Promise<TutorialIdea[]> {
+    const prompt = this.buildAnalysisPrompt(pages, keywords);
 
     try {
       const message = await this.client.messages.create({
@@ -66,7 +66,7 @@ export class TutorialAnalyzer {
     }
   }
 
-  private buildAnalysisPrompt(pages: CrawledPage[]): string {
+  private buildAnalysisPrompt(pages: CrawledPage[], keywords?: string): string {
     const pagesContext = pages.map((page, idx) => `
 Page ${idx + 1}:
 URL: ${page.url}
@@ -75,7 +75,11 @@ Headings: ${page.headings.join(', ')}
 Content preview: ${page.content.substring(0, 500)}...
 `).join('\n---\n');
 
-    return `You are an expert technical writer and tutorial creator. Analyze the following documentation pages and identify 3-5 tutorial opportunities that would be valuable for developers.
+    const keywordInstructions = keywords
+      ? `\n\n**IMPORTANT**: Focus your tutorial ideas specifically on these topics/keywords: ${keywords}\nOnly generate tutorials that are directly related to at least one of these keywords. Filter out any tutorial ideas that don't match these focus areas.\n`
+      : '';
+
+    return `You are an expert technical writer and tutorial creator. Analyze the following documentation pages and identify 3-5 tutorial opportunities that would be valuable for developers.${keywordInstructions}
 
 ${pagesContext}
 
